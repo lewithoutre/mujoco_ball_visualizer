@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Replay a ball trajectory CSV in the MuJoCo viewer."""
+"""Replay a ball trajectory CSV in a MuJoCo raw GLFW window."""
 
 from __future__ import annotations
 
@@ -13,17 +13,20 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, Sequence
 
+import glfw
 import numpy as np
 
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MODEL = ROOT / "scene" / "ball_field.xml"
 IDENTITY = np.eye(3).reshape(-1)
+
 UNIT_SCALE = {
     "m": 1.0,
     "cm": 0.01,
     "mm": 0.001,
 }
+
 AUTO_TIME_COLUMNS = ("time", "t", "stamp", "stamp_sec", "timestamp", "sec")
 
 
@@ -33,21 +36,25 @@ class TrajectoryPoint:
     pos: np.ndarray
 
 
-def load_mujoco():
+def load_mujoco_after_glfw_window():
+    """
+    Jetson workaround:
+    create the GLFW window first, then import/use MuJoCo.
+
+    Importing MuJoCo before creating the GLFW window may cause:
+      GLX: No GLXFBConfigs returned
+    """
     try:
         import mujoco
-        import mujoco.viewer
     except ModuleNotFoundError as exc:
         if exc.name == "mujoco":
             raise SystemExit(
                 "Python package 'mujoco' is not installed. Run:\n"
-                "  cd mujoco_ball_visualizer\n"
-                "  python3 -m venv .venv\n"
-                "  source .venv/bin/activate\n"
-                "  pip install -r requirements.txt"
+                "  python3 -m pip install mujoco"
             ) from exc
         raise
-    return mujoco, mujoco.viewer
+
+    return mujoco
 
 
 def add_bool_argument(
@@ -60,9 +67,6 @@ def add_bool_argument(
     Python 3.8 compatible replacement for argparse.BooleanOptionalAction.
 
     Example:
-      add_bool_argument(parser, "--loop", True, "Loop playback.")
-
-    This creates:
       --loop
       --no-loop
     """
@@ -97,9 +101,11 @@ def parse_column_list(value: str) -> list[str]:
 def parse_float(value: Optional[str]) -> float:
     if value is None:
         return math.nan
+
     value = value.strip()
     if not value:
         return math.nan
+
     try:
         return float(value)
     except ValueError:
@@ -109,9 +115,11 @@ def parse_float(value: Optional[str]) -> float:
 def resolve_column(fieldnames: Sequence[str], requested: Optional[str]) -> Optional[str]:
     if requested is None:
         return None
+
     stripped = {name.strip(): name for name in fieldnames}
     if requested in stripped:
         return stripped[requested]
+
     lowered = {name.strip().lower(): name for name in fieldnames}
     return lowered.get(requested.lower())
 
@@ -149,6 +157,7 @@ def load_csv_trajectory(
         resolved_time = resolve_column(reader.fieldnames, time_column)
         if time_column and resolved_time is None:
             raise ValueError(f"Missing time column: {time_column}")
+
         if resolved_time is None:
             resolved_time = resolve_auto_time_column(reader.fieldnames)
 
@@ -161,6 +170,7 @@ def load_csv_trajectory(
                 values.append(ball_radius_m / scale)
 
             pos = np.array(values, dtype=float) * scale
+
             if clamp_ground and pos[2] < ball_radius_m:
                 pos[2] = ball_radius_m
 
@@ -200,8 +210,10 @@ def demo_trajectory(ball_radius_m: float) -> list[TrajectoryPoint]:
     gravity = -9.81
     restitution = 0.52
     drag = 0.985
+
     pos = np.array([-3.6, -0.85, ball_radius_m], dtype=float)
     vel = np.array([1.60, 0.38, 3.60], dtype=float)
+
     points: list[TrajectoryPoint] = []
 
     for i in range(int(6.0 / dt) + 1):
@@ -233,8 +245,10 @@ def sample_trajectory(
 
     right = bisect.bisect_right(times, t)
     left = right - 1
+
     t0 = times[left]
     t1 = times[right]
+
     alpha = 0.0 if t1 == t0 else (t - t0) / (t1 - t0)
     pos = (1.0 - alpha) * points[left].pos + alpha * points[right].pos
 
@@ -252,18 +266,21 @@ def configure_model(model, ball_radius_m: float) -> None:
     model.geom("ball_geom").size[0] = ball_radius_m
 
 
-def configure_camera(viewer, points: Sequence[TrajectoryPoint]) -> None:
+def configure_camera(cam, points: Sequence[TrajectoryPoint]) -> None:
     positions = np.array([point.pos for point in points])
+
     low = positions.min(axis=0)
     high = positions.max(axis=0)
+
     center = (low + high) * 0.5
     center[2] = max(center[2], 0.15)
+
     extent = max(float((high - low).max()), 1.0)
 
-    viewer.cam.lookat[:] = center
-    viewer.cam.distance = max(3.0, extent * 1.7)
-    viewer.cam.azimuth = 140
-    viewer.cam.elevation = -28
+    cam.lookat[:] = center
+    cam.distance = max(3.0, extent * 1.7)
+    cam.azimuth = 140
+    cam.elevation = -28
 
 
 def add_line(mujoco, scn, start: np.ndarray, end: np.ndarray, width: float, rgba) -> bool:
@@ -310,15 +327,19 @@ def add_sphere(mujoco, scn, pos: np.ndarray, radius: float, rgba) -> bool:
     return True
 
 
-def draw_user_scene(
+def draw_trail_scene(
     mujoco,
     scn,
     history: Sequence[np.ndarray],
     line_width: float,
     ghost_every: int,
 ) -> None:
-    scn.ngeom = 0
+    """
+    Append trajectory trail geoms to the existing MuJoCo scene.
 
+    Do not reset scn.ngeom here. mjv_updateScene has already filled
+    the scene with the model geoms for this frame.
+    """
     if len(history) < 2:
         return
 
@@ -326,7 +347,14 @@ def draw_user_scene(
 
     for i in range(segment_count):
         age = i / max(segment_count - 1, 1)
-        rgba = [0.05 + 0.20 * age, 0.75, 1.00 - 0.25 * age, 0.18 + 0.62 * age]
+
+        rgba = [
+            0.05 + 0.20 * age,
+            0.75,
+            1.00 - 0.25 * age,
+            0.18 + 0.62 * age,
+        ]
+
         if not add_line(mujoco, scn, history[i], history[i + 1], line_width, rgba):
             return
 
@@ -336,6 +364,7 @@ def draw_user_scene(
     for i in range(0, len(history), ghost_every):
         age = i / max(len(history) - 1, 1)
         rgba = [1.0, 0.92, 0.18, 0.18 + 0.35 * age]
+
         if not add_sphere(mujoco, scn, history[i], 0.025, rgba):
             return
 
@@ -360,6 +389,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--ball-radius-m", type=float, default=0.07, help="Visual ball radius in meters.")
     parser.add_argument("--trail-points", type=int, default=240, help="Number of historical samples to draw.")
     parser.add_argument("--line-width", type=float, default=4.0, help="Trail line width in pixels.")
+
     parser.add_argument(
         "--ghost-every",
         type=int,
@@ -367,8 +397,16 @@ def parse_args() -> argparse.Namespace:
         help="Draw a ghost point every N trail points; 0 disables it.",
     )
 
+    parser.add_argument("--width", type=int, default=1000, help="Window width.")
+    parser.add_argument("--height", type=int, default=700, help="Window height.")
+
     add_bool_argument(parser, "--loop", default=True, help_text="Loop playback.")
-    add_bool_argument(parser, "--show-ui", default=False, help_text="Show MuJoCo side panels.")
+    add_bool_argument(
+        parser,
+        "--show-ui",
+        default=False,
+        help_text="Show MuJoCo side panels. Ignored in raw GLFW mode.",
+    )
     add_bool_argument(
         parser,
         "--clamp-ground",
@@ -379,6 +417,40 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--dry-run", action="store_true", help="Validate trajectory loading without opening MuJoCo.")
 
     return parser.parse_args()
+
+
+def key_callback(window, key, scancode, action, mods) -> None:
+    del scancode, mods
+
+    if action != glfw.PRESS:
+        return
+
+    if key == glfw.KEY_ESCAPE:
+        glfw.set_window_should_close(window, True)
+
+
+def create_glfw_window(width: int, height: int):
+    if not glfw.init():
+        raise SystemExit("ERROR: glfw.init() failed")
+
+    window = glfw.create_window(width, height, "MuJoCo trajectory player", None, None)
+
+    if not window:
+        glfw.terminate()
+        raise SystemExit(
+            "ERROR: glfw.create_window() failed\n"
+            "Try running:\n"
+            "  export DISPLAY=:0\n"
+            "  unset MUJOCO_GL\n"
+            "  unset PYOPENGL_PLATFORM\n"
+            "  unset LIBGL_ALWAYS_INDIRECT\n"
+        )
+
+    glfw.make_context_current(window)
+    glfw.swap_interval(1)
+    glfw.set_key_callback(window, key_callback)
+
+    return window
 
 
 def main() -> int:
@@ -413,6 +485,7 @@ def main() -> int:
 
     times = [point.t for point in points]
     duration = max(times[-1], 1e-9)
+
     unit_label = args.unit if args.csv is not None else "m"
 
     summary = (
@@ -424,31 +497,36 @@ def main() -> int:
         print(summary)
         return 0
 
-    mujoco, viewer_module = load_mujoco()
+    if args.show_ui:
+        print("Note: --show-ui is ignored in raw GLFW mode.")
+
+    print(summary)
+    print("Creating GLFW window before importing MuJoCo...")
+
+    window = create_glfw_window(args.width, args.height)
+
+    mujoco = load_mujoco_after_glfw_window()
 
     model = mujoco.MjModel.from_xml_path(str(args.model))
     data = mujoco.MjData(model)
 
     configure_model(model, args.ball_radius_m)
+    set_ball_pose(mujoco, model, data, points[0].pos)
 
-    print(f"{summary} Close the MuJoCo window to stop.")
+    cam = mujoco.MjvCamera()
+    opt = mujoco.MjvOption()
+    scene = mujoco.MjvScene(model, maxgeom=10000)
+    context = mujoco.MjrContext(model, mujoco.mjtFontScale.mjFONTSCALE_150)
 
-    with viewer_module.launch_passive(
-        model,
-        data,
-        show_left_ui=args.show_ui,
-        show_right_ui=args.show_ui,
-    ) as viewer:
-        with viewer.lock():
-            configure_camera(viewer, points)
-            set_ball_pose(mujoco, model, data, points[0].pos)
+    configure_camera(cam, points)
 
-        viewer.sync()
+    start_wall = time.monotonic()
+    last_print = 0.0
 
-        start_wall = time.monotonic()
-        last_print = 0.0
+    print("Running. Close the window or press ESC to stop.")
 
-        while viewer.is_running():
+    try:
+        while not glfw.window_should_close(window):
             elapsed = (time.monotonic() - start_wall) * args.speed
 
             if args.loop:
@@ -457,21 +535,38 @@ def main() -> int:
                 replay_t = min(elapsed, duration)
 
             pos, index = sample_trajectory(points, times, replay_t)
+
             start_index = max(0, index - max(args.trail_points, 0))
             history = [point.pos for point in points[start_index : index + 1]]
             history.append(pos)
 
-            with viewer.lock():
-                set_ball_pose(mujoco, model, data, pos)
-                draw_user_scene(
-                    mujoco,
-                    viewer.user_scn,
-                    history,
-                    args.line_width,
-                    args.ghost_every,
-                )
+            set_ball_pose(mujoco, model, data, pos)
 
-            viewer.sync()
+            width, height = glfw.get_framebuffer_size(window)
+            viewport = mujoco.MjrRect(0, 0, width, height)
+
+            mujoco.mjv_updateScene(
+                model,
+                data,
+                opt,
+                None,
+                cam,
+                mujoco.mjtCatBit.mjCAT_ALL,
+                scene,
+            )
+
+            draw_trail_scene(
+                mujoco,
+                scene,
+                history,
+                args.line_width,
+                args.ghost_every,
+            )
+
+            mujoco.mjr_render(viewport, scene, context)
+
+            glfw.swap_buffers(window)
+            glfw.poll_events()
 
             now = time.monotonic()
             if now - last_print > 1.0:
@@ -485,7 +580,10 @@ def main() -> int:
 
             time.sleep(1.0 / 120.0)
 
-    print()
+    finally:
+        print()
+        glfw.terminate()
+
     return 0
 
 
@@ -494,4 +592,8 @@ if __name__ == "__main__":
         raise SystemExit(main())
     except KeyboardInterrupt:
         print()
+        try:
+            glfw.terminate()
+        except Exception:
+            pass
         sys.exit(130)
