@@ -222,7 +222,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--ball-radius-m", type=float, default=0.07, help="Visual ball radius in meters.")
     parser.add_argument("--trail-points", type=int, default=240, help="History length for each trajectory.")
     parser.add_argument("--stale-sec", type=float, default=1.0, help="Hide live debug points after this many seconds without updates.")
-    parser.add_argument("--show-ui", action=argparse.BooleanOptionalAction, default=False, help="Show MuJoCo side panels.")
+    parser.add_argument("--show-ui", dest="show_ui", action="store_true", default=False, help="Show MuJoCo side panels.")
+    parser.add_argument("--no-show-ui", dest="show_ui", action="store_false", help=argparse.SUPPRESS)
     return parser.parse_args()
 
 
