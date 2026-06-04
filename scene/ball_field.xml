@@ -1,0 +1,96 @@
+<mujoco model="dvision_ball_field">
+  <compiler angle="radian"/>
+  <option timestep="0.008" gravity="0 0 -9.81"/>
+
+  <visual>
+    <global azimuth="140" elevation="-28"/>
+    <quality shadowsize="2048"/>
+    <map znear="0.01" zfar="50"/>
+  </visual>
+
+  <asset>
+    <texture name="grid" type="2d" builtin="checker" width="512" height="512"
+             rgb1="0.08 0.36 0.16" rgb2="0.10 0.42 0.18"/>
+    <material name="field_mat" texture="grid" texrepeat="6 4"
+              rgba="0.08 0.38 0.16 1"/>
+    <material name="line_mat" rgba="0.92 0.96 0.90 1"/>
+    <material name="ball_mat" rgba="1.0 0.50 0.05 1"/>
+    <material name="goal_mat" rgba="0.95 0.95 0.95 1"/>
+    <material name="robot_body_mat" rgba="0.12 0.22 0.86 1"/>
+    <material name="robot_front_mat" rgba="0.95 0.95 1.00 1"/>
+    <material name="robot_head_mat" rgba="0.05 0.06 0.09 1"/>
+  </asset>
+
+  <worldbody>
+    <light name="sun" pos="0 0 10" dir="0 0 -1" diffuse="0.9 0.9 0.9" ambient="0.3 0.3 0.3" specular="0.2 0.2 0.2"/>
+
+    <geom name="field" type="plane" size="5.0 3.5 0.02" material="field_mat"/>
+
+    <!-- Field dimensions match config/field_features.yml: x +/-450 cm, y +/-300 cm. -->
+    <geom name="line_north" type="box" pos="0 3.0 0.004" size="4.50 0.025 0.004" material="line_mat"/>
+    <geom name="line_south" type="box" pos="0 -3.0 0.004" size="4.50 0.025 0.004" material="line_mat"/>
+    <geom name="line_east" type="box" pos="4.5 0 0.004" size="0.025 3.00 0.004" material="line_mat"/>
+    <geom name="line_west" type="box" pos="-4.5 0 0.004" size="0.025 3.00 0.004" material="line_mat"/>
+    <geom name="line_center" type="box" pos="0 0 0.004" size="0.025 3.00 0.004" material="line_mat"/>
+
+    <geom name="goal_area_east_front" type="box" pos="3.5 0 0.004" size="0.025 1.50 0.004" material="line_mat"/>
+    <geom name="goal_area_east_top" type="box" pos="4.0 1.5 0.004" size="0.50 0.025 0.004" material="line_mat"/>
+    <geom name="goal_area_east_bottom" type="box" pos="4.0 -1.5 0.004" size="0.50 0.025 0.004" material="line_mat"/>
+    <geom name="goal_area_west_front" type="box" pos="-3.5 0 0.004" size="0.025 1.50 0.004" material="line_mat"/>
+    <geom name="goal_area_west_top" type="box" pos="-4.0 1.5 0.004" size="0.50 0.025 0.004" material="line_mat"/>
+    <geom name="goal_area_west_bottom" type="box" pos="-4.0 -1.5 0.004" size="0.50 0.025 0.004" material="line_mat"/>
+
+    <geom name="penalty_area_east_front" type="box" pos="2.5 0 0.004" size="0.025 2.00 0.004" material="line_mat"/>
+    <geom name="penalty_area_east_top" type="box" pos="3.5 2.0 0.004" size="1.00 0.025 0.004" material="line_mat"/>
+    <geom name="penalty_area_east_bottom" type="box" pos="3.5 -2.0 0.004" size="1.00 0.025 0.004" material="line_mat"/>
+    <geom name="penalty_area_west_front" type="box" pos="-2.5 0 0.004" size="0.025 2.00 0.004" material="line_mat"/>
+    <geom name="penalty_area_west_top" type="box" pos="-3.5 2.0 0.004" size="1.00 0.025 0.004" material="line_mat"/>
+    <geom name="penalty_area_west_bottom" type="box" pos="-3.5 -2.0 0.004" size="1.00 0.025 0.004" material="line_mat"/>
+
+    <geom name="penalty_east" type="cylinder" pos="3.0 0 0.006" size="0.05 0.004" material="line_mat"/>
+    <geom name="penalty_west" type="cylinder" pos="-3.0 0 0.006" size="0.05 0.004" material="line_mat"/>
+    <body name="center_circle">
+      <geom type="capsule" fromto="0.7500 0.0000 0.004 0.6929 0.2870 0.004" size="0.025" material="line_mat" contype="0" conaffinity="0" />
+      <geom type="capsule" fromto="0.6929 0.2870 0.004 0.5303 0.5303 0.004" size="0.025" material="line_mat" contype="0" conaffinity="0" />
+      <geom type="capsule" fromto="0.5303 0.5303 0.004 0.2870 0.6929 0.004" size="0.025" material="line_mat" contype="0" conaffinity="0" />
+      <geom type="capsule" fromto="0.2870 0.6929 0.004 0.0000 0.7500 0.004" size="0.025" material="line_mat" contype="0" conaffinity="0" />
+      <geom type="capsule" fromto="0.0000 0.7500 0.004 -0.2870 0.6929 0.004" size="0.025" material="line_mat" contype="0" conaffinity="0" />
+      <geom type="capsule" fromto="-0.2870 0.6929 0.004 -0.5303 0.5303 0.004" size="0.025" material="line_mat" contype="0" conaffinity="0" />
+      <geom type="capsule" fromto="-0.5303 0.5303 0.004 -0.6929 0.2870 0.004" size="0.025" material="line_mat" contype="0" conaffinity="0" />
+      <geom type="capsule" fromto="-0.6929 0.2870 0.004 -0.7500 0.0000 0.004" size="0.025" material="line_mat" contype="0" conaffinity="0" />
+      <geom type="capsule" fromto="-0.7500 0.0000 0.004 -0.6929 -0.2870 0.004" size="0.025" material="line_mat" contype="0" conaffinity="0" />
+      <geom type="capsule" fromto="-0.6929 -0.2870 0.004 -0.5303 -0.5303 0.004" size="0.025" material="line_mat" contype="0" conaffinity="0" />
+      <geom type="capsule" fromto="-0.5303 -0.5303 0.004 -0.2870 -0.6929 0.004" size="0.025" material="line_mat" contype="0" conaffinity="0" />
+      <geom type="capsule" fromto="-0.2870 -0.6929 0.004 0.0000 -0.7500 0.004" size="0.025" material="line_mat" contype="0" conaffinity="0" />
+      <geom type="capsule" fromto="0.0000 -0.7500 0.004 0.2870 -0.6929 0.004" size="0.025" material="line_mat" contype="0" conaffinity="0" />
+      <geom type="capsule" fromto="0.2870 -0.6929 0.004 0.5303 -0.5303 0.004" size="0.025" material="line_mat" contype="0" conaffinity="0" />
+      <geom type="capsule" fromto="0.5303 -0.5303 0.004 0.6929 -0.2870 0.004" size="0.025" material="line_mat" contype="0" conaffinity="0" />
+      <geom type="capsule" fromto="0.6929 -0.2870 0.004 0.7500 0.0000 0.004" size="0.025" material="line_mat" contype="0" conaffinity="0" />
+    </body>
+
+    <body name="goal_east" pos="4.5 0 0">
+      <geom type="cylinder" pos="0 0.9 0.45" size="0.025 0.45" material="goal_mat"/>
+      <geom type="cylinder" pos="0 -0.9 0.45" size="0.025 0.45" material="goal_mat"/>
+      <geom type="box" pos="0 0 0.9" size="0.025 0.925 0.025" material="goal_mat"/>
+    </body>
+    <body name="goal_west" pos="-4.5 0 0">
+      <geom type="cylinder" pos="0 0.9 0.45" size="0.025 0.45" material="goal_mat"/>
+      <geom type="cylinder" pos="0 -0.9 0.45" size="0.025 0.45" material="goal_mat"/>
+      <geom type="box" pos="0 0 0.9" size="0.025 0.925 0.025" material="goal_mat"/>
+    </body>
+
+    <body name="robot" pos="0 0 0">
+      <freejoint name="robot_freejoint"/>
+      <geom name="robot_body" type="box" pos="0 0 0.13" size="0.18 0.14 0.10" mass="4.0" material="robot_body_mat" contype="0" conaffinity="0"/>
+      <geom name="robot_front" type="box" pos="0.16 0 0.16" size="0.07 0.045 0.045" material="robot_front_mat" contype="0" conaffinity="0"/>
+      <geom name="robot_head" type="sphere" pos="0.04 0 0.31" size="0.055" material="robot_head_mat" contype="0" conaffinity="0"/>
+      <geom name="robot_heading" type="capsule" fromto="0.02 0 0.34 0.30 0 0.34" size="0.012" material="robot_front_mat" contype="0" conaffinity="0"/>
+    </body>
+
+    <body name="ball" pos="0 0 0.07">
+      <freejoint name="ball_freejoint"/>
+      <geom name="ball_geom" type="sphere" size="0.07" mass="0.043" material="ball_mat"
+            condim="3" friction="0.8 0.02 0.002"/>
+    </body>
+  </worldbody>
+</mujoco>
