@@ -50,6 +50,43 @@ def load_mujoco():
     return mujoco, mujoco.viewer
 
 
+def add_bool_argument(
+    parser: argparse.ArgumentParser,
+    name: str,
+    default: bool,
+    help_text: str,
+) -> None:
+    """
+    Python 3.8 compatible replacement for argparse.BooleanOptionalAction.
+
+    Example:
+      add_bool_argument(parser, "--loop", True, "Loop playback.")
+
+    This creates:
+      --loop
+      --no-loop
+    """
+    if not name.startswith("--"):
+        raise ValueError("Boolean argument name must start with '--'")
+
+    dest = name[2:].replace("-", "_")
+    no_name = "--no-" + name[2:]
+
+    parser.add_argument(
+        name,
+        dest=dest,
+        action="store_true",
+        default=default,
+        help=help_text,
+    )
+    parser.add_argument(
+        no_name,
+        dest=dest,
+        action="store_false",
+        help=f"Disable: {help_text}",
+    )
+
+
 def parse_column_list(value: str) -> list[str]:
     columns = [item.strip() for item in value.split(",") if item.strip()]
     if len(columns) not in (2, 3):
@@ -134,6 +171,7 @@ def load_csv_trajectory(
                 t = stamp
             else:
                 t = index / fps
+
             points.append(TrajectoryPoint(t=t, pos=pos))
 
     return normalize_trajectory(points)
@@ -146,12 +184,14 @@ def normalize_trajectory(points: list[TrajectoryPoint]) -> list[TrajectoryPoint]
     points = sorted(points, key=lambda point: point.t)
     origin = points[0].t
     normalized: list[TrajectoryPoint] = []
+
     for point in points:
         shifted = point.t - origin
         if normalized and shifted <= normalized[-1].t:
             normalized[-1] = TrajectoryPoint(t=shifted, pos=point.pos)
         else:
             normalized.append(TrajectoryPoint(t=shifted, pos=point.pos))
+
     return normalized
 
 
@@ -187,6 +227,7 @@ def sample_trajectory(
 ) -> tuple[np.ndarray, int]:
     if t <= times[0]:
         return points[0].pos.copy(), 0
+
     if t >= times[-1]:
         return points[-1].pos.copy(), len(points) - 1
 
@@ -196,6 +237,7 @@ def sample_trajectory(
     t1 = times[right]
     alpha = 0.0 if t1 == t0 else (t - t0) / (t1 - t0)
     pos = (1.0 - alpha) * points[left].pos + alpha * points[right].pos
+
     return pos, left
 
 
@@ -227,7 +269,9 @@ def configure_camera(viewer, points: Sequence[TrajectoryPoint]) -> None:
 def add_line(mujoco, scn, start: np.ndarray, end: np.ndarray, width: float, rgba) -> bool:
     if scn.ngeom >= len(scn.geoms):
         return False
+
     geom = scn.geoms[scn.ngeom]
+
     mujoco.mjv_initGeom(
         geom,
         mujoco.mjtGeom.mjGEOM_LINE,
@@ -236,6 +280,7 @@ def add_line(mujoco, scn, start: np.ndarray, end: np.ndarray, width: float, rgba
         IDENTITY,
         np.asarray(rgba, dtype=np.float32),
     )
+
     mujoco.mjv_connector(
         geom,
         mujoco.mjtGeom.mjGEOM_LINE,
@@ -243,6 +288,7 @@ def add_line(mujoco, scn, start: np.ndarray, end: np.ndarray, width: float, rgba
         start,
         end,
     )
+
     scn.ngeom += 1
     return True
 
@@ -250,6 +296,7 @@ def add_line(mujoco, scn, start: np.ndarray, end: np.ndarray, width: float, rgba
 def add_sphere(mujoco, scn, pos: np.ndarray, radius: float, rgba) -> bool:
     if scn.ngeom >= len(scn.geoms):
         return False
+
     mujoco.mjv_initGeom(
         scn.geoms[scn.ngeom],
         mujoco.mjtGeom.mjGEOM_SPHERE,
@@ -258,6 +305,7 @@ def add_sphere(mujoco, scn, pos: np.ndarray, radius: float, rgba) -> bool:
         IDENTITY,
         np.asarray(rgba, dtype=np.float32),
     )
+
     scn.ngeom += 1
     return True
 
@@ -270,10 +318,12 @@ def draw_user_scene(
     ghost_every: int,
 ) -> None:
     scn.ngeom = 0
+
     if len(history) < 2:
         return
 
     segment_count = len(history) - 1
+
     for i in range(segment_count):
         age = i / max(segment_count - 1, 1)
         rgba = [0.05 + 0.20 * age, 0.75, 1.00 - 0.25 * age, 0.18 + 0.62 * age]
@@ -292,14 +342,17 @@ def draw_user_scene(
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
+
     parser.add_argument("csv", nargs="?", type=Path, help="Trajectory CSV path.")
     parser.add_argument("--model", type=Path, default=DEFAULT_MODEL, help="MuJoCo MJCF model path.")
+
     parser.add_argument(
         "--columns",
         type=parse_column_list,
         default=parse_column_list("x,y,z"),
         help="Position columns, e.g. x,y,z or kf_x,kf_y,kf_z.",
     )
+
     parser.add_argument("--time-column", default=None, help="Optional timestamp column.")
     parser.add_argument("--fps", type=float, default=30.0, help="Fallback FPS when no time column exists.")
     parser.add_argument("--unit", choices=sorted(UNIT_SCALE), default="cm", help="CSV position unit.")
@@ -307,25 +360,36 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--ball-radius-m", type=float, default=0.07, help="Visual ball radius in meters.")
     parser.add_argument("--trail-points", type=int, default=240, help="Number of historical samples to draw.")
     parser.add_argument("--line-width", type=float, default=4.0, help="Trail line width in pixels.")
-    parser.add_argument("--ghost-every", type=int, default=20, help="Draw a ghost point every N trail points; 0 disables it.")
-    parser.add_argument("--loop", action=argparse.BooleanOptionalAction, default=True, help="Loop playback.")
-    parser.add_argument("--show-ui", action=argparse.BooleanOptionalAction, default=False, help="Show MuJoCo side panels.")
-    parser.add_argument("--dry-run", action="store_true", help="Validate trajectory loading without opening MuJoCo.")
     parser.add_argument(
-        "--clamp-ground",
-        action=argparse.BooleanOptionalAction,
-        default=True,
-        help="Clamp z below the ball radius to the ground.",
+        "--ghost-every",
+        type=int,
+        default=20,
+        help="Draw a ghost point every N trail points; 0 disables it.",
     )
+
+    add_bool_argument(parser, "--loop", default=True, help_text="Loop playback.")
+    add_bool_argument(parser, "--show-ui", default=False, help_text="Show MuJoCo side panels.")
+    add_bool_argument(
+        parser,
+        "--clamp-ground",
+        default=True,
+        help_text="Clamp z below the ball radius to the ground.",
+    )
+
+    parser.add_argument("--dry-run", action="store_true", help="Validate trajectory loading without opening MuJoCo.")
+
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
+
     if args.fps <= 0.0:
         raise SystemExit("--fps must be positive")
+
     if args.speed <= 0.0:
         raise SystemExit("--speed must be positive")
+
     if args.ball_radius_m <= 0.0:
         raise SystemExit("--ball-radius-m must be positive")
 
@@ -350,22 +414,24 @@ def main() -> int:
     times = [point.t for point in points]
     duration = max(times[-1], 1e-9)
     unit_label = args.unit if args.csv is not None else "m"
+
     summary = (
         f"Loaded {len(points)} points from {source}; "
         f"duration={times[-1]:.3f}s, unit={unit_label}."
     )
+
     if args.dry_run:
         print(summary)
         return 0
 
     mujoco, viewer_module = load_mujoco()
+
     model = mujoco.MjModel.from_xml_path(str(args.model))
     data = mujoco.MjData(model)
+
     configure_model(model, args.ball_radius_m)
 
-    print(
-        f"{summary} Close the MuJoCo window to stop."
-    )
+    print(f"{summary} Close the MuJoCo window to stop.")
 
     with viewer_module.launch_passive(
         model,
@@ -376,12 +442,15 @@ def main() -> int:
         with viewer.lock():
             configure_camera(viewer, points)
             set_ball_pose(mujoco, model, data, points[0].pos)
+
         viewer.sync()
 
         start_wall = time.monotonic()
         last_print = 0.0
+
         while viewer.is_running():
             elapsed = (time.monotonic() - start_wall) * args.speed
+
             if args.loop:
                 replay_t = elapsed % duration
             else:
@@ -413,6 +482,7 @@ def main() -> int:
                     flush=True,
                 )
                 last_print = now
+
             time.sleep(1.0 / 120.0)
 
     print()
