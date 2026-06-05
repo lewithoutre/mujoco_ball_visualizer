@@ -27,9 +27,11 @@ from typing import Optional
 import glfw
 import numpy as np
 
+from mujoco_glfw_controls import camera_controls_help, install_mouse_camera_controls
+
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_MODEL = ROOT / "scene" / "ball_field.xml"
+DEFAULT_MODEL = ROOT / "scene" / "piplus_ball_field.xml"
 IDENTITY = np.eye(3).reshape(-1)
 
 UNIT_SCALE = {
@@ -224,6 +226,24 @@ def draw_history(mujoco, scn, history, width: float, rgba_start, rgba_end) -> bo
     return True
 
 
+def draw_history_spheres(mujoco, scn, history, radius: float, rgba_start, rgba_end) -> bool:
+    if not history:
+        return True
+
+    count = len(history)
+    start = np.asarray(rgba_start, dtype=float)
+    end = np.asarray(rgba_end, dtype=float)
+
+    for i in range(count):
+        alpha = i / max(count - 1, 1)
+        rgba = (1.0 - alpha) * start + alpha * end
+
+        if not add_sphere(mujoco, scn, history[i], radius, rgba):
+            return False
+
+    return True
+
+
 def draw_live_scene(
     mujoco,
     scn,
@@ -241,11 +261,11 @@ def draw_live_scene(
       mjv_updateScene() has already filled the scene with model geoms.
       We append raw/filtered trails and debug spheres after that.
     """
-    if not draw_history(
+    if not draw_history_spheres(
         mujoco,
         scn,
         raw_history,
-        2.0,
+        ball_radius_m * 0.3,
         [1.0, 0.10, 0.08, 0.08],
         [1.0, 0.10, 0.08, 0.45],
     ):
@@ -526,8 +546,10 @@ def main() -> int:
     context = mujoco.MjrContext(model, mujoco.mjtFontScale.mjFONTSCALE_150)
 
     configure_camera(cam)
+    mouse_controller = install_mouse_camera_controls(window, mujoco, model, scene, cam)
 
     print("Running. Close the window or press ESC to stop.")
+    print(camera_controls_help())
 
     try:
         while not glfw.window_should_close(window) and not rospy.is_shutdown():

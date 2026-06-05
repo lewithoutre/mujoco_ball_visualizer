@@ -1,0 +1,264 @@
+<mujoco model="dvision_piplus_ball_field">
+  <compiler angle="radian" meshdir="/home/lewithoutre/ZJU_dancer/PiPlus/meshes" />
+  <option timestep="0.008" gravity="0 0 -9.81" />
+  <visual>
+    <global azimuth="140" elevation="-28" />
+    <quality shadowsize="2048" />
+    <map znear="0.01" zfar="50" />
+  </visual>
+  <default>
+    <default class="visual">
+      <geom type="mesh" contype="0" conaffinity="0" group="2" density="0" />
+    </default>
+    <default class="collision">
+      <geom group="3" material="transparent" priority="1" friction="1. 0.01 0.005" />
+    </default>
+  </default>
+  <asset>
+    <texture name="grid" type="2d" builtin="checker" width="512" height="512" rgb1="0.08 0.36 0.16" rgb2="0.10 0.42 0.18" />
+    <material name="field_mat" texture="grid" texrepeat="6 4" rgba="0.08 0.38 0.16 1" />
+    <material name="line_mat" rgba="0.92 0.96 0.90 1" />
+    <material name="ball_mat" rgba="1.0 0.50 0.05 1" />
+    <material name="goal_mat" rgba="0.95 0.95 0.95 1" />
+    <material name="robot_body_mat" rgba="0.12 0.22 0.86 1" />
+    <material name="robot_front_mat" rgba="0.95 0.95 1.00 1" />
+    <material name="robot_head_mat" rgba="0.05 0.06 0.09 1" />
+    <material name="metal" rgba=".9 .95 .95 1" />
+    <material name="black" rgba="0 0 0 1" />
+    <material name="white" rgba="1 1 1 1" />
+    <material name="gray" rgba="0.4 0.4 0.4 1" />
+    <material name="team" rgba="0.4 0.4 0.4 1" />
+    <material name="transparent" rgba="0.5 0.5 0.5 1" />
+    <mesh name="base_link" file="base_link.STL" />
+    <mesh name="waist_yaw_link" file="waist_yaw_link.STL" />
+    <mesh name="torso_link" file="torso_link.STL" />
+    <mesh name="head_yaw_link" file="head_yaw_link.STL" />
+    <mesh name="head_pitch_link" file="head_pitch_link.STL" />
+    <mesh name="camera_link" file="camera_link.STL" />
+    <mesh name="hip_pitch_link" file="hip_pitch_link.STL" />
+    <mesh name="hip_roll_link" file="hip_roll_link.STL" />
+    <mesh name="thigh_link" file="thigh_link.STL" />
+    <mesh name="calf_link" file="calf_link.STL" />
+    <mesh name="ankle_pitch_link" file="ankle_pitch_link.STL" />
+    <mesh name="ankle_roll_link" file="ankle_roll_link.STL" />
+    <mesh name="r_hip_pitch_link" file="hip_pitch_link.STL" scale="1 -1 1" />
+    <mesh name="r_hip_roll_link" file="hip_roll_link.STL" scale="1 -1 1" />
+    <mesh name="r_thigh_link" file="thigh_link.STL" scale="1 -1 1" />
+    <mesh name="r_calf_link" file="calf_link.STL" scale="1 -1 1" />
+    <mesh name="r_ankle_pitch_link" file="ankle_pitch_link.STL" scale="1 -1 1" />
+    <mesh name="r_ankle_roll_link" file="ankle_roll_link.STL" scale="1 -1 1" />
+    <mesh name="shoulder_pitch_link" file="shoulder_pitch_link.STL" />
+    <mesh name="shoulder_roll_link" file="shoulder_roll_link.STL" />
+    <mesh name="upper_arm_link" file="upper_arm_link.STL" />
+    <mesh name="elbow_link" file="elbow_link.STL" />
+    <mesh name="wrist_link" file="wrist_link.STL" />
+    <mesh name="r_shoulder_pitch_link" file="shoulder_pitch_link.STL" scale="1 -1 1" />
+    <mesh name="r_shoulder_roll_link" file="shoulder_roll_link.STL" scale="1 -1 1" />
+    <mesh name="r_upper_arm_link" file="upper_arm_link.STL" scale="1 -1 1" />
+    <mesh name="r_elbow_link" file="elbow_link.STL" scale="1 -1 1" />
+    <mesh name="r_wrist_link" file="wrist_link.STL" scale="1 -1 1" />
+  </asset>
+  <worldbody>
+    <light name="sun" pos="0 0 10" dir="0 0 -1" diffuse="0.9 0.9 0.9" ambient="0.3 0.3 0.3" specular="0.2 0.2 0.2" />
+    <geom name="field" type="plane" size="5.0 3.5 0.02" material="field_mat" />
+    <geom name="line_north" type="box" pos="0 3.0 0.004" size="4.50 0.025 0.004" material="line_mat" />
+    <geom name="line_south" type="box" pos="0 -3.0 0.004" size="4.50 0.025 0.004" material="line_mat" />
+    <geom name="line_east" type="box" pos="4.5 0 0.004" size="0.025 3.00 0.004" material="line_mat" />
+    <geom name="line_west" type="box" pos="-4.5 0 0.004" size="0.025 3.00 0.004" material="line_mat" />
+    <geom name="line_center" type="box" pos="0 0 0.004" size="0.025 3.00 0.004" material="line_mat" />
+    <geom name="goal_area_east_front" type="box" pos="3.5 0 0.004" size="0.025 1.50 0.004" material="line_mat" />
+    <geom name="goal_area_east_top" type="box" pos="4.0 1.5 0.004" size="0.50 0.025 0.004" material="line_mat" />
+    <geom name="goal_area_east_bottom" type="box" pos="4.0 -1.5 0.004" size="0.50 0.025 0.004" material="line_mat" />
+    <geom name="goal_area_west_front" type="box" pos="-3.5 0 0.004" size="0.025 1.50 0.004" material="line_mat" />
+    <geom name="goal_area_west_top" type="box" pos="-4.0 1.5 0.004" size="0.50 0.025 0.004" material="line_mat" />
+    <geom name="goal_area_west_bottom" type="box" pos="-4.0 -1.5 0.004" size="0.50 0.025 0.004" material="line_mat" />
+    <geom name="penalty_area_east_front" type="box" pos="2.5 0 0.004" size="0.025 2.00 0.004" material="line_mat" />
+    <geom name="penalty_area_east_top" type="box" pos="3.5 2.0 0.004" size="1.00 0.025 0.004" material="line_mat" />
+    <geom name="penalty_area_east_bottom" type="box" pos="3.5 -2.0 0.004" size="1.00 0.025 0.004" material="line_mat" />
+    <geom name="penalty_area_west_front" type="box" pos="-2.5 0 0.004" size="0.025 2.00 0.004" material="line_mat" />
+    <geom name="penalty_area_west_top" type="box" pos="-3.5 2.0 0.004" size="1.00 0.025 0.004" material="line_mat" />
+    <geom name="penalty_area_west_bottom" type="box" pos="-3.5 -2.0 0.004" size="1.00 0.025 0.004" material="line_mat" />
+    <geom name="penalty_east" type="cylinder" pos="3.0 0 0.006" size="0.05 0.004" material="line_mat" />
+    <geom name="penalty_west" type="cylinder" pos="-3.0 0 0.006" size="0.05 0.004" material="line_mat" />
+    <body name="center_circle">
+      <geom type="capsule" fromto="0.7500 0.0000 0.004 0.6929 0.2870 0.004" size="0.025" material="line_mat" contype="0" conaffinity="0" />
+      <geom type="capsule" fromto="0.6929 0.2870 0.004 0.5303 0.5303 0.004" size="0.025" material="line_mat" contype="0" conaffinity="0" />
+      <geom type="capsule" fromto="0.5303 0.5303 0.004 0.2870 0.6929 0.004" size="0.025" material="line_mat" contype="0" conaffinity="0" />
+      <geom type="capsule" fromto="0.2870 0.6929 0.004 0.0000 0.7500 0.004" size="0.025" material="line_mat" contype="0" conaffinity="0" />
+      <geom type="capsule" fromto="0.0000 0.7500 0.004 -0.2870 0.6929 0.004" size="0.025" material="line_mat" contype="0" conaffinity="0" />
+      <geom type="capsule" fromto="-0.2870 0.6929 0.004 -0.5303 0.5303 0.004" size="0.025" material="line_mat" contype="0" conaffinity="0" />
+      <geom type="capsule" fromto="-0.5303 0.5303 0.004 -0.6929 0.2870 0.004" size="0.025" material="line_mat" contype="0" conaffinity="0" />
+      <geom type="capsule" fromto="-0.6929 0.2870 0.004 -0.7500 0.0000 0.004" size="0.025" material="line_mat" contype="0" conaffinity="0" />
+      <geom type="capsule" fromto="-0.7500 0.0000 0.004 -0.6929 -0.2870 0.004" size="0.025" material="line_mat" contype="0" conaffinity="0" />
+      <geom type="capsule" fromto="-0.6929 -0.2870 0.004 -0.5303 -0.5303 0.004" size="0.025" material="line_mat" contype="0" conaffinity="0" />
+      <geom type="capsule" fromto="-0.5303 -0.5303 0.004 -0.2870 -0.6929 0.004" size="0.025" material="line_mat" contype="0" conaffinity="0" />
+      <geom type="capsule" fromto="-0.2870 -0.6929 0.004 0.0000 -0.7500 0.004" size="0.025" material="line_mat" contype="0" conaffinity="0" />
+      <geom type="capsule" fromto="0.0000 -0.7500 0.004 0.2870 -0.6929 0.004" size="0.025" material="line_mat" contype="0" conaffinity="0" />
+      <geom type="capsule" fromto="0.2870 -0.6929 0.004 0.5303 -0.5303 0.004" size="0.025" material="line_mat" contype="0" conaffinity="0" />
+      <geom type="capsule" fromto="0.5303 -0.5303 0.004 0.6929 -0.2870 0.004" size="0.025" material="line_mat" contype="0" conaffinity="0" />
+      <geom type="capsule" fromto="0.6929 -0.2870 0.004 0.7500 0.0000 0.004" size="0.025" material="line_mat" contype="0" conaffinity="0" />
+    </body>
+    <body name="goal_east" pos="4.5 0 0">
+      <geom type="cylinder" pos="0 0.9 0.45" size="0.025 0.45" material="goal_mat" />
+      <geom type="cylinder" pos="0 -0.9 0.45" size="0.025 0.45" material="goal_mat" />
+      <geom type="box" pos="0 0 0.9" size="0.025 0.925 0.025" material="goal_mat" />
+    </body>
+    <body name="goal_west" pos="-4.5 0 0">
+      <geom type="cylinder" pos="0 0.9 0.45" size="0.025 0.45" material="goal_mat" />
+      <geom type="cylinder" pos="0 -0.9 0.45" size="0.025 0.45" material="goal_mat" />
+      <geom type="box" pos="0 0 0.9" size="0.025 0.925 0.025" material="goal_mat" />
+    </body>
+    <body name="ball" pos="0 0 0.07">
+      <freejoint name="ball_freejoint" />
+      <geom name="ball_geom" type="sphere" size="0.07" mass="0.043" material="ball_mat" condim="3" friction="0.8 0.02 0.002" />
+    </body>
+    <body name="robot" pos="0 0 0">
+      <freejoint name="robot_freejoint" />
+      <body name="torso" pos="-0.05065 0 0.385">
+        <site name="torso" pos="0 0 0" />
+        <site name="jersey" pos="-0.094 0.0 0.1" size="0.005 0.048 0.065" type="box" group="3" />
+        <site name="jersey-front" pos="0.097 -0.0 0.1" quat="0 0 0 1" size="0.005 0.048 0.065" type="box" group="3" />
+        <inertial pos="-0.00028949 4.698e-05 -0.0392137" quat="0.705746 0.707801 -0.0233662 0.0198668" mass="0.868918" diaginertia="0.00101736 0.000890983 0.00038356" />
+        <geom class="visual" material="team" mesh="base_link" contype="0" conaffinity="0" />
+        <geom class="collision" name="torso" size="0.025 0.035 0.025" pos="0 0 -0.045" type="box" />
+        <body name="r_hip_pitch_link" pos="0 -0.0475 -0.0435">
+          <inertial pos="7.92e-05 -0.0319026 9.097e-05" quat="0.428329 0.522509 -0.486869 0.553604" mass="0.459314" diaginertia="0.000279632 0.000271753 0.000264745" />
+          <geom class="visual" material="gray" mesh="r_hip_pitch_link" contype="0" conaffinity="0" />
+          <body name="r_hip_roll_link" pos="0 -0.034 0">
+            <inertial pos="0.00102172 -0.00033797 -0.0584583" quat="0.701595 0.0555068 0.0565269 0.708158" mass="0.558201" diaginertia="0.000740261 0.000626564 0.000407515" />
+            <geom class="visual" material="gray" mesh="r_hip_roll_link" contype="0" conaffinity="0" />
+            <body name="r_thigh_link" pos="-0.00035 0 -0.0974">
+              <inertial pos="0.00064557 -0.00075206 -0.0208405" quat="0.703792 0.710207 0.0135977 -0.00990732" mass="0.154843" diaginertia="0.000187812 0.000161216 0.000100573" />
+              <geom class="visual" material="gray" mesh="r_thigh_link" contype="0" conaffinity="0" />
+              <geom class="collision" name="r_thigh" size="0.035 0.0275" pos="0 0 0.065" type="cylinder" />
+              <body name="r_calf_link" pos="0 0 -0.045">
+                <inertial pos="-1.001e-05 -0.00237049 -0.0666124" quat="0.999998 -0.000800274 0.00132271 -0.000965395" mass="0.858523" diaginertia="0.00416944 0.00414653 0.000429274" />
+                <geom class="visual" material="gray" mesh="r_calf_link" contype="0" conaffinity="0" />
+                <geom class="collision" name="r_calf" size="0.0275 0.0275 0.0275" quat="0.707388 0.706825 0 0" type="box" />
+                <geom class="collision" name="r_calf_box" size="0.005 0.01 0.0275" pos="0 0 -0.065" type="box" />
+                <body name="r_ankle_pitch_link" pos="0 0 -0.14">
+                  <inertial pos="0.00503044 0.00051345 -0.00016685" quat="-0.00108772 0.710445 -0.00435661 0.703738" mass="0.163526" diaginertia="0.00028931 0.000208237 0.000115362" />
+                  <geom class="visual" material="gray" mesh="r_ankle_pitch_link" contype="0" conaffinity="0" />
+                  <geom class="collision" name="r_ankle_pitch" size="0.035 0.035 0.021" pos="0.0035 0 0" type="box" />
+                  <body name="r_ankle_roll_link" pos="0.051 0 0">
+                    <site name="rfoot-vismarker" pos="0 0 0" />
+                    <inertial pos="0.00456214 8.211e-05 -0.0125654" quat="0.563454 0.425204 0.421185 0.569494" mass="0.616626" diaginertia="0.00150793 0.00140979 0.000471117" />
+                    <geom class="visual" material="gray" mesh="r_ankle_roll_link" contype="0" conaffinity="0" />
+                    <geom class="collision" name="r_foot" size="0.03 0.03 0.021" pos="0.028 0 0" type="box" />
+                    <geom class="collision" name="r_foot_c1" size="0.01 0.065" pos="-0.017 -0.025 -0.04" quat="0.707105 0 0.707108 0" type="cylinder" />
+                    <geom class="collision" name="r_foot_c2" size="0.01 0.082" pos="-0.0272 -0.009 -0.04" quat="0.707105 0 -0.707108 0" type="cylinder" />
+                    <geom class="collision" name="r_foot_c3" size="0.01 0.082" pos="-0.0272 0.009 -0.04" quat="0.707105 0 -0.707108 0" type="cylinder" />
+                    <geom class="collision" name="r_foot_c4" size="0.01 0.065" pos="-0.017 0.025 -0.04" quat="0.707105 0 0.707108 0" type="cylinder" />
+                  </body>
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+        <body name="l_hip_pitch_link" pos="0 0.0475 -0.0435">
+          <inertial pos="7.921e-05 0.0319025 -0.0001562" quat="0.497171 0.489511 -0.578693 0.422273" mass="0.459318" diaginertia="0.000279904 0.000271819 0.000264407" />
+          <geom class="visual" material="gray" mesh="hip_pitch_link" contype="0" conaffinity="0" />
+          <body name="l_hip_roll_link" pos="0 0.034 0">
+            <inertial pos="0.00087873 1.341e-05 -0.0584583" quat="0.702052 0.056967 0.0602688 0.70728" mass="0.558201" diaginertia="0.000740475 0.000627166 0.00040724" />
+            <geom class="visual" material="gray" mesh="hip_roll_link" contype="0" conaffinity="0" />
+            <body name="l_thigh_link" pos="-0.00035 0 -0.0974">
+              <inertial pos="0.00071587 0.00075215 -0.0208406" quat="0.710169 0.70371 0.0141108 -0.015948" mass="0.154842" diaginertia="0.000187829 0.000161177 0.000100564" />
+              <geom class="visual" material="gray" mesh="thigh_link" contype="0" conaffinity="0" />
+              <geom class="collision" name="l_thigh" size="0.035 0.0275" pos="0 0 0.065" type="cylinder" />
+              <body name="l_calf_link" pos="0 0 -0.045">
+                <inertial pos="-1.001e-05 0.00237048 -0.0666125" quat="0.999997 0.000796813 -0.00130207 0.00164731" mass="0.858523" diaginertia="0.00416944 0.00414652 0.000429275" />
+                <geom class="visual" material="gray" mesh="calf_link" contype="0" conaffinity="0" />
+                <geom class="collision" name="l_calf" size="0.0275 0.0275 0.0275" quat="0.707388 0.706825 0 0" type="box" />
+                <geom class="collision" name="l_calf_box" size="0.005 0.01 0.0275" pos="0 0 -0.065" type="box" />
+                <body name="l_ankle_pitch_link" pos="0 0 -0.14">
+                  <inertial pos="0.00503044 -0.00051345 -0.00016685" quat="0.00108772 0.710445 0.00435661 0.703738" mass="0.163526" diaginertia="0.00028931 0.000208237 0.000115362" />
+                  <geom class="visual" material="gray" mesh="ankle_pitch_link" contype="0" conaffinity="0" />
+                  <geom class="collision" name="l_ankle_pitch" size="0.035 0.035 0.021" pos="0.0035 0 0" type="box" />
+                  <body name="l_ankle_roll_link" pos="0.051 0 0">
+                    <site name="lfoot-vismarker" pos="0 0 0" />
+                    <inertial pos="0.00456214 8.211e-05 -0.0125654" quat="0.563454 0.425204 0.421185 0.569494" mass="0.616626" diaginertia="0.00150793 0.00140979 0.000471117" />
+                    <geom class="visual" material="gray" mesh="ankle_roll_link" contype="0" conaffinity="0" />
+                    <geom class="collision" name="l_foot" size="0.03 0.03 0.021" pos="0.028 0 0" type="box" />
+                    <geom class="collision" name="l_foot_c1" size="0.01 0.065" pos="-0.017 -0.025 -0.04" quat="0.707105 0 0.707108 0" type="cylinder" />
+                    <geom class="collision" name="l_foot_c2" size="0.01 0.082" pos="-0.0272 -0.009 -0.04" quat="0.707105 0 -0.707108 0" type="cylinder" />
+                    <geom class="collision" name="l_foot_c3" size="0.01 0.082" pos="-0.0272 0.009 -0.04" quat="0.707105 0 -0.707108 0" type="cylinder" />
+                    <geom class="collision" name="l_foot_c4" size="0.01 0.065" pos="-0.017 0.025 -0.04" quat="0.707105 0 0.707108 0" type="cylinder" />
+                  </body>
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+        <body name="chest_link" pos="0 0 0">
+          <inertial pos="0.00153764 -3.179e-05 0.0959554" quat="0.705415 0.708147 0.0225102 -0.0202894" mass="2.82494" diaginertia="0.0159234 0.0140664 0.0134032" />
+          <geom class="visual" material="team" mesh="torso_link" contype="0" conaffinity="0" />
+          <geom class="collision" name="chest" size="0.0775 0.0775 0.0775" pos="0 0 0.09" type="box" />
+          <body name="r_shoulder_pitch_link" pos="0 -0.1084 0.117">
+            <inertial pos="-0.0023165 -0.0172048 0.00020825" quat="-0.034283 0.706989 0.0142854 0.706249" mass="0.139352" diaginertia="0.000145208 0.000122162 7.54598e-05" />
+            <geom class="visual" material="gray" mesh="r_shoulder_pitch_link" contype="0" conaffinity="0" />
+            <body name="r_shoulder_roll_link" pos="0 -0.038 0">
+              <inertial pos="-0.00164862 -0.00020989 -0.024888" quat="0.692267 -0.0208066 -0.015904 0.721166" mass="0.55615" diaginertia="0.000521636 0.000513996 0.000152408" />
+              <geom class="visual" material="gray" mesh="r_shoulder_roll_link" contype="0" conaffinity="0" />
+              <body name="r_upper_arm_link" pos="0 0 -0.0724">
+                <inertial pos="3.107e-05 -0.00138646 -0.0121349" quat="0.619141 0.785272 -0.00344701 0.000473666" mass="0.153183" diaginertia="0.000177072 0.000143883 0.000111845" />
+                <geom class="visual" material="gray" mesh="r_upper_arm_link" contype="0" conaffinity="0" />
+                <geom class="collision" name="r_upper_arm" size="0.035 0.0475" pos="0 0 0.025" type="cylinder" />
+                <body name="r_elbow_link" pos="0 0 -0.038">
+                  <inertial pos="5.69e-05 -0.00308341 -0.00211549" quat="0.671089 0.741218 0.0118416 -0.00978532" mass="0.313175" diaginertia="0.000107759 9.78655e-05 9.33151e-05" />
+                  <geom class="visual" material="gray" mesh="r_elbow_link" contype="0" conaffinity="0" />
+                  <body name="r_wrist_link" pos="0 0 -0.029">
+                    <inertial pos="3.045e-05 4.83e-06 -0.0407825" quat="0.707163 -0.000330349 -0.00046236 0.70705" mass="0.0751806" diaginertia="0.00011823 0.00011809 1.10499e-05" />
+                    <geom class="visual" material="gray" mesh="r_wrist_link" contype="0" conaffinity="0" />
+                    <geom class="collision" name="r_wrist" size="0.008 0.015" pos="0 0 -0.035" type="cylinder" />
+                    <geom class="collision" name="r_hand" size="0.0175" pos="0 0 -0.095" type="sphere" />
+                  </body>
+                </body>
+              </body>
+            </body>
+          </body>
+          <body name="l_shoulder_pitch_link" pos="0 0.1084 0.11698">
+            <inertial pos="-0.00215543 0.0172048 0.00022511" quat="0.0355111 0.707216 -0.0147967 0.70595" mass="0.139352" diaginertia="0.00014525 0.000122217 7.54432e-05" />
+            <geom class="visual" material="gray" mesh="shoulder_pitch_link" contype="0" conaffinity="0" />
+            <body name="l_shoulder_roll_link" pos="0 0.038 0">
+              <inertial pos="-0.00140359 0.00022205 -0.024888" quat="0.658223 -0.023097 -0.0218074 0.752153" mass="0.55615" diaginertia="0.000522159 0.000514351 0.00015235" />
+              <geom class="visual" material="gray" mesh="shoulder_roll_link" contype="0" conaffinity="0" />
+              <body name="l_upper_arm_link" pos="0 0 -0.0724">
+                <inertial pos="-0.00013535 0.00129534 -0.0121342" quat="0.786804 0.617162 -0.00567645 0.00431653" mass="0.153183" diaginertia="0.000177157 0.000144033 0.00011178" />
+                <geom class="visual" material="gray" mesh="upper_arm_link" contype="0" conaffinity="0" />
+                <geom class="collision" name="l_upper_arm" size="0.035 0.0475" pos="0 0 0.025" type="cylinder" />
+                <body name="l_elbow_link" pos="0 0 -0.038">
+                  <inertial pos="-5.422e-05 0.00312726 -0.00211549" quat="0.705312 0.708745 -0.00907225 0.0115636" mass="0.313175" diaginertia="0.000107669 9.77316e-05 9.33597e-05" />
+                  <geom class="visual" material="gray" mesh="elbow_link" contype="0" conaffinity="0" />
+                  <body name="l_wrist_link" pos="0 0 -0.029">
+                    <inertial pos="3.045e-05 4.83e-06 -0.0407825" quat="0.707163 -0.000330349 -0.00046236 0.70705" mass="0.0751806" diaginertia="0.00011823 0.00011809 1.10499e-05" />
+                    <geom class="visual" material="gray" mesh="wrist_link" contype="0" conaffinity="0" />
+                    <geom class="collision" name="l_wrist" size="0.008 0.015" pos="0 0 -0.035" type="cylinder" />
+                    <geom class="collision" name="l_hand" size="0.0175" pos="0 0 -0.095" type="sphere" />
+                  </body>
+                </body>
+              </body>
+            </body>
+          </body>
+          <body name="head_yaw_link" pos="0.014 -0.00026667 0.1981">
+            <inertial pos="6.097e-05 0.00133898 0.0240816" quat="0.998747 -0.0440354 -0.0231093 -0.00560078" mass="0.209663" diaginertia="5.60112e-05 5.44082e-05 5.07706e-05" />
+            <geom class="visual" material="gray" mesh="head_yaw_link" contype="0" conaffinity="0" />
+            <geom class="collision" name="head_yaw" size="0.0175 0.02 0.0175" pos="0 0 0.0195" type="box" />
+            <body name="head_pitch_link" pos="0 0 0.0275">
+              <site name="head-vismarker" pos="0.04 0 0.06" />
+              <site name="camera" pos="0.05 0.005 0.06" />
+              <site name="say_a-speaker" pos="0 0 0.04" />
+              <site name="hear_a-micro" pos="0 0 0.08" />
+              <inertial pos="0.0266546 -0.00167129 0.0555251" quat="0.453472 0.464811 -0.534731 0.540719" mass="0.33297" diaginertia="0.00102166 0.000807505 0.000557328" />
+              <geom class="visual" material="gray" mesh="head_pitch_link" contype="0" conaffinity="0" />
+              <geom class="collision" name="head" size="0.05 0.055 0.0225" pos="0.026 0 0.055" type="box" />
+              <body name="H2" pos="0.048925 0.0053519 0.058472">
+                <inertial pos="0.00963743 0.00075253 0.00058537" quat="0.70738 0.706786 0.00245222 0.00788061" mass="0.0584" diaginertia="7.26043e-05 7.249e-05 5.51563e-06" />
+                <geom class="visual" material="gray" mesh="camera_link" contype="0" conaffinity="0" />
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+</mujoco>

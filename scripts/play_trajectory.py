@@ -16,9 +16,11 @@ from typing import Optional, Sequence
 import glfw
 import numpy as np
 
+from mujoco_glfw_controls import camera_controls_help, install_mouse_camera_controls
+
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_MODEL = ROOT / "scene" / "ball_field.xml"
+DEFAULT_MODEL = ROOT / "scene" / "piplus_ball_field.xml"
 IDENTITY = np.eye(3).reshape(-1)
 
 UNIT_SCALE = {
@@ -34,6 +36,7 @@ AUTO_TIME_COLUMNS = ("time", "t", "stamp", "stamp_sec", "timestamp", "sec")
 class TrajectoryPoint:
     t: float
     pos: np.ndarray
+    robot_pose: Optional[np.ndarray] = None
 
 
 def load_mujoco_after_glfw_window():
@@ -132,9 +135,37 @@ def resolve_auto_time_column(fieldnames: Sequence[str]) -> Optional[str]:
     return None
 
 
+def set_freejoint_pose(
+    mujoco,
+    model,
+    data,
+    joint_name: str,
+    pos: np.ndarray,
+    yaw: float = 0.0,
+) -> None:
+    try:
+        qpos = data.joint(joint_name).qpos
+    except KeyError:
+        return
+
+    qpos[:3] = pos
+    qpos[3:] = np.array(
+        [
+            math.cos(yaw * 0.5),
+            0.0,
+            0.0,
+            math.sin(yaw * 0.5),
+        ],
+        dtype=float,
+    )
+
+    mujoco.mj_forward(model, data)
+
+
 def load_csv_trajectory(
     path: Path,
     columns: Sequence[str],
+    robot_columns: Optional[Sequence[str]],
     time_column: Optional[str],
     fps: float,
     unit: str,
@@ -153,6 +184,12 @@ def load_csv_trajectory(
         missing = [columns[i] for i, resolved in enumerate(resolved_columns) if resolved is None]
         if missing:
             raise ValueError(f"Missing CSV columns: {', '.join(missing)}")
+            
+        resolved_robot_columns = None
+        if robot_columns is not None:
+            resolved_robot_columns = [resolve_column(reader.fieldnames, col) for col in robot_columns]
+            if any(c is None for c in resolved_robot_columns):
+                resolved_robot_columns = None
 
         resolved_time = resolve_column(reader.fieldnames, time_column)
         if time_column and resolved_time is None:
@@ -165,6 +202,15 @@ def load_csv_trajectory(
             values = [parse_float(row.get(col)) for col in resolved_columns if col is not None]
             if any(math.isnan(value) for value in values):
                 continue
+                
+            robot_values = None
+            if resolved_robot_columns is not None:
+                parsed_robot = [parse_float(row.get(col)) for col in resolved_robot_columns if col is not None]
+                if not any(math.isnan(v) for v in parsed_robot):
+                    if len(parsed_robot) == 2:
+                        parsed_robot.append(0.0) # default yaw
+                    robot_values = np.array(parsed_robot, dtype=float)
+                    robot_values[:2] *= scale
 
             if len(values) == 2:
                 values.append(ball_radius_m / scale)
@@ -182,7 +228,7 @@ def load_csv_trajectory(
             else:
                 t = index / fps
 
-            points.append(TrajectoryPoint(t=t, pos=pos))
+            points.append(TrajectoryPoint(t=t, pos=pos, robot_pose=robot_values))
 
     return normalize_trajectory(points)
 
@@ -198,9 +244,9 @@ def normalize_trajectory(points: list[TrajectoryPoint]) -> list[TrajectoryPoint]
     for point in points:
         shifted = point.t - origin
         if normalized and shifted <= normalized[-1].t:
-            normalized[-1] = TrajectoryPoint(t=shifted, pos=point.pos)
+            normalized[-1] = TrajectoryPoint(t=shifted, pos=point.pos, robot_pose=point.robot_pose)
         else:
-            normalized.append(TrajectoryPoint(t=shifted, pos=point.pos))
+            normalized.append(TrajectoryPoint(t=shifted, pos=point.pos, robot_pose=point.robot_pose))
 
     return normalized
 
@@ -236,12 +282,12 @@ def sample_trajectory(
     points: Sequence[TrajectoryPoint],
     times: Sequence[float],
     t: float,
-) -> tuple[np.ndarray, int]:
+) -> tuple[np.ndarray, Optional[np.ndarray], int]:
     if t <= times[0]:
-        return points[0].pos.copy(), 0
+        return points[0].pos.copy(), (points[0].robot_pose.copy() if points[0].robot_pose is not None else None), 0
 
     if t >= times[-1]:
-        return points[-1].pos.copy(), len(points) - 1
+        return points[-1].pos.copy(), (points[-1].robot_pose.copy() if points[-1].robot_pose is not None else None), len(points) - 1
 
     right = bisect.bisect_right(times, t)
     left = right - 1
@@ -251,8 +297,12 @@ def sample_trajectory(
 
     alpha = 0.0 if t1 == t0 else (t - t0) / (t1 - t0)
     pos = (1.0 - alpha) * points[left].pos + alpha * points[right].pos
+    
+    robot_pose = None
+    if points[left].robot_pose is not None and points[right].robot_pose is not None:
+        robot_pose = (1.0 - alpha) * points[left].robot_pose + alpha * points[right].robot_pose
 
-    return pos, left
+    return pos, robot_pose, left
 
 
 def set_ball_pose(mujoco, model, data, pos: np.ndarray) -> None:
@@ -266,8 +316,25 @@ def configure_model(model, ball_radius_m: float) -> None:
     model.geom("ball_geom").size[0] = ball_radius_m
 
 
-def configure_camera(cam, points: Sequence[TrajectoryPoint]) -> None:
-    positions = np.array([point.pos for point in points])
+def configure_camera(
+    cam,
+    points: Sequence[TrajectoryPoint],
+    default_robot_pose: np.ndarray,
+) -> None:
+    positions = [point.pos for point in points]
+
+    robot_positions = [
+        np.array([point.robot_pose[0], point.robot_pose[1], 0.4], dtype=float)
+        for point in points
+        if point.robot_pose is not None
+    ]
+
+    if robot_positions:
+        positions.extend(robot_positions)
+    else:
+        positions.append(np.array([default_robot_pose[0], default_robot_pose[1], 0.4], dtype=float))
+
+    positions = np.array(positions)
 
     low = positions.min(axis=0)
     high = positions.max(axis=0)
@@ -382,6 +449,17 @@ def parse_args() -> argparse.Namespace:
         help="Position columns, e.g. x,y,z or kf_x,kf_y,kf_z.",
     )
 
+    parser.add_argument(
+        "--robot-columns",
+        type=parse_column_list,
+        default=None,
+        help="Robot position columns, e.g. robot_x,robot_y,robot_yaw. Must be 2 or 3 columns.",
+    )
+
+    parser.add_argument("--robot-x", type=float, default=-1.0, help="Default robot X if not in CSV.")
+    parser.add_argument("--robot-y", type=float, default=0.0, help="Default robot Y if not in CSV.")
+    parser.add_argument("--robot-yaw", type=float, default=0.0, help="Default robot yaw (radians) if not in CSV.")
+
     parser.add_argument("--time-column", default=None, help="Optional timestamp column.")
     parser.add_argument("--fps", type=float, default=30.0, help="Fallback FPS when no time column exists.")
     parser.add_argument("--unit", choices=sorted(UNIT_SCALE), default="cm", help="CSV position unit.")
@@ -472,6 +550,7 @@ def main() -> int:
         points = load_csv_trajectory(
             args.csv,
             args.columns,
+            args.robot_columns,
             args.time_column,
             args.fps,
             args.unit,
@@ -513,17 +592,42 @@ def main() -> int:
     configure_model(model, args.ball_radius_m)
     set_ball_pose(mujoco, model, data, points[0].pos)
 
+    robot_pose = points[0].robot_pose
+    if robot_pose is None:
+        set_freejoint_pose(
+            mujoco,
+            model,
+            data,
+            "robot_freejoint",
+            np.array([args.robot_x, args.robot_y, 0.0], dtype=float),
+            args.robot_yaw,
+        )
+    else:
+        rx, ry = robot_pose[0], robot_pose[1]
+        ryaw = robot_pose[2] if len(robot_pose) > 2 else 0.0
+        set_freejoint_pose(
+            mujoco,
+            model,
+            data,
+            "robot_freejoint",
+            np.array([rx, ry, 0.0], dtype=float),
+            ryaw,
+        )
+
     cam = mujoco.MjvCamera()
     opt = mujoco.MjvOption()
     scene = mujoco.MjvScene(model, maxgeom=10000)
     context = mujoco.MjrContext(model, mujoco.mjtFontScale.mjFONTSCALE_150)
 
-    configure_camera(cam, points)
+    default_robot_pose = np.array([args.robot_x, args.robot_y, args.robot_yaw], dtype=float)
+    configure_camera(cam, points, default_robot_pose)
+    mouse_controller = install_mouse_camera_controls(window, mujoco, model, scene, cam)
 
     start_wall = time.monotonic()
     last_print = 0.0
 
     print("Running. Close the window or press ESC to stop.")
+    print(camera_controls_help())
 
     try:
         while not glfw.window_should_close(window):
@@ -534,13 +638,25 @@ def main() -> int:
             else:
                 replay_t = min(elapsed, duration)
 
-            pos, index = sample_trajectory(points, times, replay_t)
+            pos, current_robot_pose, index = sample_trajectory(points, times, replay_t)
 
             start_index = max(0, index - max(args.trail_points, 0))
             history = [point.pos for point in points[start_index : index + 1]]
             history.append(pos)
 
             set_ball_pose(mujoco, model, data, pos)
+
+            if current_robot_pose is not None:
+                rx, ry = current_robot_pose[0], current_robot_pose[1]
+                ryaw = current_robot_pose[2] if len(current_robot_pose) > 2 else 0.0
+                set_freejoint_pose(
+                    mujoco,
+                    model,
+                    data,
+                    "robot_freejoint",
+                    np.array([rx, ry, 0.0], dtype=float),
+                    ryaw,
+                )
 
             width, height = glfw.get_framebuffer_size(window)
             viewport = mujoco.MjrRect(0, 0, width, height)

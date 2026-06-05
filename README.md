@@ -2,6 +2,9 @@
 
 这个目录是一个独立的球轨迹可视化小工具，不依赖当前 ROS/CMake 构建。它用 MuJoCo 打开一个足球场景，然后按 CSV 中的轨迹驱动球的位置，适合拿来观察原始测量值、Kalman 滤波结果或预测轨迹。
 
+默认场景会从同级目录 `../PiPlus/robot.xml` 合成完整 PiPlus 机器人模型，不再用简单几何体代替机器人。
+合成后的机器人是固定姿态，只保留一个 `robot_freejoint` 用于对齐全局 `x/y/yaw`；这个 freejoint 的原点定义为两脚中点在地面上的投影。
+
 ## 安装
 
 ```bash
@@ -13,6 +16,12 @@ pip install -r requirements.txt
 
 当前项目坐标大多是厘米，播放器默认 `--unit cm`，会自动换算成 MuJoCo 的米制坐标。
 
+如果 `../PiPlus/robot.xml` 或 STL mesh 更新了，重新生成 MuJoCo 场景：
+
+```bash
+python3 scripts/build_piplus_scene.py
+```
+
 ## 快速跑通
 
 不传 CSV 时会播放一个内置示例轨迹：
@@ -20,6 +29,8 @@ pip install -r requirements.txt
 ```bash
 python3 scripts/play_trajectory.py
 ```
+
+窗口支持鼠标视角控制：左键拖动旋转，右键拖动平移，滚轮缩放，`Shift` + 左键上下拖动缩放，`+/-` 缩放，`ESC` 退出。
 
 也可以先生成一份示例 CSV，再按文件回放：
 
