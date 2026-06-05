@@ -1,5 +1,5 @@
 <mujoco model="dvision_piplus_ball_field">
-  <compiler angle="radian" meshdir="/home/lewithoutre/ZJU_dancer/PiPlus/meshes" />
+  <compiler angle="radian" meshdir="../../PiPlus/meshes" />
   <option timestep="0.008" gravity="0 0 -9.81" />
   <visual>
     <global azimuth="140" elevation="-28" />
