@@ -13,12 +13,23 @@ class MouseCameraController:
         self.cam = cam
         self.last_x = None
         self.last_y = None
+        self.default_lookat = None
+        self.default_distance = None
+        self.default_azimuth = None
+        self.default_elevation = None
 
     def install(self, window) -> None:
+        self.remember_default_camera()
         glfw.set_mouse_button_callback(window, self.on_mouse_button)
         glfw.set_cursor_pos_callback(window, self.on_cursor_pos)
         glfw.set_scroll_callback(window, self.on_scroll)
         glfw.set_key_callback(window, self.on_key)
+
+    def remember_default_camera(self) -> None:
+        self.default_lookat = self.cam.lookat.copy()
+        self.default_distance = self.cam.distance
+        self.default_azimuth = self.cam.azimuth
+        self.default_elevation = self.cam.elevation
 
     def on_mouse_button(self, window, button: int, action: int, mods: int) -> None:
         del button, mods
@@ -55,14 +66,12 @@ class MouseCameraController:
         rel_x = dx / height
         rel_y = dy / height
 
-        if shift and left:
-            self.move(self.mujoco.mjtMouse.mjMOUSE_ZOOM, 0.0, rel_y)
-        elif middle or (left and right):
-            self.move(self.mujoco.mjtMouse.mjMOUSE_ZOOM, 0.0, rel_y)
-        elif right:
+        if right or (left and right):
             self.move(self.mujoco.mjtMouse.mjMOUSE_MOVE_H, rel_x, 0.0)
             self.move(self.mujoco.mjtMouse.mjMOUSE_MOVE_V, 0.0, rel_y)
-        else:
+        elif shift and left:
+            self.move(self.mujoco.mjtMouse.mjMOUSE_ZOOM, 0.0, rel_y)
+        elif middle or left:
             self.move(self.mujoco.mjtMouse.mjMOUSE_ROTATE_H, rel_x, 0.0)
             self.move(self.mujoco.mjtMouse.mjMOUSE_ROTATE_V, 0.0, rel_y)
 
@@ -78,10 +87,40 @@ class MouseCameraController:
 
         if key == glfw.KEY_ESCAPE:
             glfw.set_window_should_close(window, True)
+        elif key == glfw.KEY_R:
+            self.reset_camera()
+        elif key == glfw.KEY_1:
+            self.set_top_view()
+        elif key == glfw.KEY_2:
+            self.set_level_view()
+        elif key == glfw.KEY_3:
+            self.set_oblique_view()
         elif key in (glfw.KEY_EQUAL, glfw.KEY_KP_ADD):
             self.move(self.mujoco.mjtMouse.mjMOUSE_ZOOM, 0.0, -0.05)
         elif key in (glfw.KEY_MINUS, glfw.KEY_KP_SUBTRACT):
             self.move(self.mujoco.mjtMouse.mjMOUSE_ZOOM, 0.0, 0.05)
+
+    def reset_camera(self) -> None:
+        if self.default_lookat is None:
+            return
+
+        self.cam.lookat[:] = self.default_lookat
+        self.cam.distance = self.default_distance
+        self.cam.azimuth = self.default_azimuth
+        self.cam.elevation = self.default_elevation
+
+    def set_top_view(self) -> None:
+        self.cam.azimuth = 90
+        self.cam.elevation = -90
+
+    def set_level_view(self) -> None:
+        self.cam.azimuth = 90
+        self.cam.elevation = 0
+        self.cam.lookat[2] = max(float(self.cam.lookat[2]), 0.35)
+
+    def set_oblique_view(self) -> None:
+        self.cam.azimuth = 140
+        self.cam.elevation = -28
 
     def move(self, action, rel_x: float, rel_y: float) -> None:
         self.mujoco.mjv_moveCamera(
@@ -102,6 +141,7 @@ def install_mouse_camera_controls(window, mujoco, model, scene, cam) -> MouseCam
 
 def camera_controls_help() -> str:
     return (
-        "Mouse controls: left-drag rotate, right-drag pan, wheel zoom, "
-        "Shift+left-drag zoom, +/- zoom."
+        "Mouse controls: left/middle-drag rotate, right-drag pan, wheel zoom, "
+        "Shift+left-drag zoom, 1 top view, 2 level view, 3 oblique view, "
+        "R reset camera, +/- zoom."
     )
