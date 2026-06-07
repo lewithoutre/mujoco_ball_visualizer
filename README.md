@@ -53,7 +53,7 @@ python3 scripts/play_trajectory.py examples/demo_trajectory.csv --columns x,y,z 
 python3 scripts/live_from_ros.py --robot-id 1
 ```
 
-实时窗口中，原始观测会显示为红色散点，Kalman 滤波结果会显示为蓝色轨迹和蓝色散点。终端默认会输出相邻两个滤波点之间的时间间隔；如果输出太频繁，可以加 `--no-print-filtered-step` 关闭。
+实时窗口中，原始观测会显示为红色散点，Kalman 滤波结果会显示为蓝色散点。终端默认会输出相邻两个滤波点之间的时间间隔；如果输出太频繁，可以加 `--no-print-filtered-step` 关闭。
 按 `C` 可以一键清空当前窗口里的红色/蓝色球轨迹，方便同一个终端和窗口里多次调试；按 `ESC` 退出。
 
 ## CSV 格式

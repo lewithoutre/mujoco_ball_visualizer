@@ -272,16 +272,6 @@ def draw_live_scene(
     ):
         return
 
-    if not draw_history(
-        mujoco,
-        scn,
-        filtered_history,
-        4.0,
-        [0.05, 0.25, 1.0, 0.12],
-        [0.05, 0.25, 1.0, 0.85],
-    ):
-        return
-
     if not draw_history_spheres(
         mujoco,
         scn,
@@ -434,24 +424,24 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def make_key_callback(clear_trails_callback=None):
+def make_key_callback(clear_trails_callback=None, next_key_callback=None):
     def key_callback(window, key, scancode, action, mods) -> None:
-        del scancode, mods
-
         if action != glfw.PRESS:
-            return
-
-        if key == glfw.KEY_ESCAPE:
-            glfw.set_window_should_close(window, True)
+            if next_key_callback is not None:
+                next_key_callback(window, key, scancode, action, mods)
             return
 
         if key == glfw.KEY_C and clear_trails_callback is not None:
             clear_trails_callback()
+            return
+
+        if next_key_callback is not None:
+            next_key_callback(window, key, scancode, action, mods)
 
     return key_callback
 
 
-def create_glfw_window(width: int, height: int, clear_trails_callback=None):
+def create_glfw_window(width: int, height: int):
     if not glfw.init():
         raise SystemExit("ERROR: glfw.init() failed")
 
@@ -470,7 +460,6 @@ def create_glfw_window(width: int, height: int, clear_trails_callback=None):
 
     glfw.make_context_current(window)
     glfw.swap_interval(1)
-    glfw.set_key_callback(window, make_key_callback(clear_trails_callback))
 
     return window
 
@@ -587,7 +576,7 @@ def main() -> int:
 
     print("Creating GLFW window before importing MuJoCo...")
 
-    window = create_glfw_window(args.width, args.height, clear_trails)
+    window = create_glfw_window(args.width, args.height)
 
     mujoco = load_mujoco_after_glfw_window()
 
@@ -619,6 +608,10 @@ def main() -> int:
 
     configure_camera(cam)
     mouse_controller = install_mouse_camera_controls(window, mujoco, model, scene, cam)
+    glfw.set_key_callback(
+        window,
+        make_key_callback(clear_trails, mouse_controller.on_key),
+    )
 
     print("Running. Press C to clear ball trajectories. Close the window or press ESC to stop.")
     print(camera_controls_help())
