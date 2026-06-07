@@ -50,6 +50,7 @@ class LiveState:
     filtered_history: deque[np.ndarray] = field(default_factory=deque)
     last_raw_stamp: float = 0.0
     last_filtered_stamp: float = 0.0
+    last_filtered_point_stamp: float = 0.0
     last_vision_stamp: float = 0.0
 
 
@@ -276,8 +277,18 @@ def draw_live_scene(
         scn,
         filtered_history,
         4.0,
-        [0.0, 0.78, 1.0, 0.12],
-        [0.0, 0.78, 1.0, 0.85],
+        [0.05, 0.25, 1.0, 0.12],
+        [0.05, 0.25, 1.0, 0.85],
+    ):
+        return
+
+    if not draw_history_spheres(
+        mujoco,
+        scn,
+        filtered_history,
+        ball_radius_m * 0.22,
+        [0.05, 0.25, 1.0, 0.08],
+        [0.05, 0.25, 1.0, 0.65],
     ):
         return
 
@@ -297,21 +308,34 @@ def draw_live_scene(
             scn,
             filtered_pos,
             ball_radius_m * 0.25,
-            [0.0, 0.95, 1.0, 0.9],
+            [0.05, 0.25, 1.0, 0.95],
         )
 
 
-def append_history(history: deque[np.ndarray], pos: np.ndarray, maxlen: int) -> None:
+def append_history(history: deque[np.ndarray], pos: np.ndarray, maxlen: int) -> bool:
     if not valid_pos(pos):
-        return
+        return False
 
     if history and float(np.linalg.norm(history[-1] - pos)) < 1e-5:
-        return
+        return False
 
     history.append(pos.copy())
 
     while len(history) > maxlen:
         history.popleft()
+
+    return True
+
+
+def print_filtered_step_interval(step_interval: Optional[float]) -> None:
+    if step_interval is None:
+        return
+
+    print(
+        f"filtered step interval: {step_interval:.4f} s "
+        f"({step_interval * 1000.0:.1f} ms)",
+        flush=True,
+    )
 
 
 def topic_or_none(value: str) -> Optional[str]:
@@ -400,21 +424,34 @@ def parse_args() -> argparse.Namespace:
         default=False,
         help_text="Show MuJoCo side panels. Ignored in raw GLFW mode.",
     )
+    add_bool_argument(
+        parser,
+        "--print-filtered-step",
+        default=True,
+        help_text="Print time interval between adjacent filtered ball points.",
+    )
 
     return parser.parse_args()
 
 
-def key_callback(window, key, scancode, action, mods) -> None:
-    del scancode, mods
+def make_key_callback(clear_trails_callback=None):
+    def key_callback(window, key, scancode, action, mods) -> None:
+        del scancode, mods
 
-    if action != glfw.PRESS:
-        return
+        if action != glfw.PRESS:
+            return
 
-    if key == glfw.KEY_ESCAPE:
-        glfw.set_window_should_close(window, True)
+        if key == glfw.KEY_ESCAPE:
+            glfw.set_window_should_close(window, True)
+            return
+
+        if key == glfw.KEY_C and clear_trails_callback is not None:
+            clear_trails_callback()
+
+    return key_callback
 
 
-def create_glfw_window(width: int, height: int):
+def create_glfw_window(width: int, height: int, clear_trails_callback=None):
     if not glfw.init():
         raise SystemExit("ERROR: glfw.init() failed")
 
@@ -433,7 +470,7 @@ def create_glfw_window(width: int, height: int):
 
     glfw.make_context_current(window)
     glfw.swap_interval(1)
-    glfw.set_key_callback(window, key_callback)
+    glfw.set_key_callback(window, make_key_callback(clear_trails_callback))
 
     return window
 
@@ -462,6 +499,14 @@ def main() -> int:
     state = LiveState()
     lock = threading.Lock()
 
+    def clear_trails() -> None:
+        with lock:
+            state.raw_history.clear()
+            state.filtered_history.clear()
+            state.last_filtered_point_stamp = 0.0
+
+        print("Cleared ball trajectories.", flush=True)
+
     def on_raw(msg) -> None:
         pos = point_msg_to_pos(msg, scale, args.ball_radius_m)
 
@@ -472,11 +517,24 @@ def main() -> int:
 
     def on_filtered(msg) -> None:
         pos = point_msg_to_pos(msg, scale, args.ball_radius_m)
+        now = time.monotonic()
 
         with lock:
             state.filtered_pos = pos
-            state.last_filtered_stamp = time.monotonic()
-            append_history(state.filtered_history, pos, args.trail_points)
+            state.last_filtered_stamp = now
+            added = append_history(state.filtered_history, pos, args.trail_points)
+            if added:
+                step_interval = (
+                    now - state.last_filtered_point_stamp
+                    if state.last_filtered_point_stamp
+                    else None
+                )
+                state.last_filtered_point_stamp = now
+            else:
+                step_interval = None
+
+        if args.print_filtered_step:
+            print_filtered_step_interval(step_interval)
 
     def on_vision(msg) -> None:
         robot_x = msg.robot_pos.x * scale
@@ -492,7 +550,21 @@ def main() -> int:
                 pos = vector_to_pos(msg.ball_global, scale, args.ball_radius_m)
                 state.filtered_pos = pos
                 state.last_filtered_stamp = now
-                append_history(state.filtered_history, pos, args.trail_points)
+                added = append_history(state.filtered_history, pos, args.trail_points)
+                if added:
+                    step_interval = (
+                        now - state.last_filtered_point_stamp
+                        if state.last_filtered_point_stamp
+                        else None
+                    )
+                    state.last_filtered_point_stamp = now
+                else:
+                    step_interval = None
+            else:
+                step_interval = None
+
+        if args.print_filtered_step:
+            print_filtered_step_interval(step_interval)
 
     rospy.init_node("mujoco_ball_live_viewer", anonymous=True, disable_signals=True)
 
@@ -515,7 +587,7 @@ def main() -> int:
 
     print("Creating GLFW window before importing MuJoCo...")
 
-    window = create_glfw_window(args.width, args.height)
+    window = create_glfw_window(args.width, args.height, clear_trails)
 
     mujoco = load_mujoco_after_glfw_window()
 
@@ -548,7 +620,7 @@ def main() -> int:
     configure_camera(cam)
     mouse_controller = install_mouse_camera_controls(window, mujoco, model, scene, cam)
 
-    print("Running. Close the window or press ESC to stop.")
+    print("Running. Press C to clear ball trajectories. Close the window or press ESC to stop.")
     print(camera_controls_help())
 
     try:
